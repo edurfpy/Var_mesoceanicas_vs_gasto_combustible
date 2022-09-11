@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>canarias</name>
+	<gx:CascadingStyle kml:id="__managed_style_21F8049A3A1BE390F336">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_13AE3326B21BE390F336">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0C726339D21BE390F336">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_13AE3326B21BE390F336</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_21F8049A3A1BE390F336</styleUrl>
+		</Pair>
+	</StyleMap>
+	<gx:CascadingStyle kml:id="__managed_style_24A4253A811BE38E38F8">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=fbc02d&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<gx:displayMode>card</gx:displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_1116F773451BE38E38F8">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=fbc02d&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<gx:displayMode>card</gx:displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_090570E14E1BE38E38F8">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_1116F773451BE38E38F8</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_24A4253A811BE38E38F8</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0AE363F41B1BE38E38F6">
+		<name>Puerto de las Nieves</name>
+		<gx:mid>/g/122h62zd</gx:mid>
+		<gx:fid>0xc408b6b24d2c09d:0xa0340f674cf8ff0</gx:fid>
+		<LookAt>
+			<longitude>-15.71071105</longitude>
+			<latitude>28.1025738</latitude>
+			<altitude>0</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>918.809797073242</range>
+			<altitudeMode>relativeToGround</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_090570E14E1BE38E38F8</styleUrl>
+		<Point>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>-15.710913,28.1030766,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0C7A15FE321BE38F2E93">
+		<name>Puerto de Sta Cruz de Tenerife</name>
+		<gx:mid>/m/09gq4d9</gx:mid>
+		<gx:fid>0xc41cb0a90c88cfd:0x9c9a4ab294912225</gx:fid>
+		<LookAt>
+			<longitude>-16.22574015</longitude>
+			<latitude>28.4775654</latitude>
+			<altitude>0</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>10217.10754175946</range>
+			<altitudeMode>relativeToGround</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_090570E14E1BE38E38F8</styleUrl>
+		<Point>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>-16.2306398,28.4795286,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="06E2C362531BE390F336">
+		<name>agaete_stacruz</name>
+		<LookAt>
+			<longitude>-16.23839683433409</longitude>
+			<latitude>28.46982688535527</latitude>
+			<altitude>1.607358851034983</altitude>
+			<heading>119.8263234370393</heading>
+			<tilt>45.0295076557885</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>5559.467984415824</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0C726339D21BE390F336</styleUrl>
+		<LineString>
+			<coordinates>
+				-15.71073322858939,28.10299552227912,11.83428696352122 -16.22940495814613,28.47919828047458,1.602731579977841 
+			</coordinates>
+		</LineString>
+	</Placemark>
+</Document>
+</kml>

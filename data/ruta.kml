@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>netcdf</name>
+	<gx:CascadingStyle kml:id="__managed_style_172689DB1F1BE1CF2F77">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>3.2</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_0B1E9262B81BE1CF2F78">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4.8</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0927D749E81BE1CF2F77">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_172689DB1F1BE1CF2F77</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_0B1E9262B81BE1CF2F78</styleUrl>
+		</Pair>
+	</StyleMap>
+	<gx:CascadingStyle kml:id="__managed_style_282AE0815A1BE1CD1172">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=fbc02d&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4.8</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<gx:displayMode>card</gx:displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_1DECA5AF1F1BE1CD1172">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=fbc02d&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>3.2</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<gx:displayMode>card</gx:displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_098E315D361BE1CD1172">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_1DECA5AF1F1BE1CD1172</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_282AE0815A1BE1CD1172</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0F2366D2B41BE1CD116F">
+		<name>Bishop Rock</name>
+		<gx:mid>/m/03j0sd</gx:mid>
+		<gx:fid>0x4840753c72f12a85:0xdacd70c6c2aaaeb1</gx:fid>
+		<LookAt>
+			<longitude>-6.449999999999999</longitude>
+			<latitude>49.8666662</latitude>
+			<altitude>0</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>3239.470920610546</range>
+			<altitudeMode>relativeToGround</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_098E315D361BE1CD1172</styleUrl>
+		<Point>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>-6.449999999999999,49.8666667,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0C77D6DC991BE1CD99CE">
+		<name>Bimini</name>
+		<gx:mid>/m/02rh2c</gx:mid>
+		<gx:fid>0x89278c1e853e0031:0x23127e6831bca34b</gx:fid>
+		<LookAt>
+			<longitude>-79.85062264999999</longitude>
+			<latitude>24.6415325</latitude>
+			<altitude>0</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>676160.1183385814</range>
+			<altitudeMode>relativeToGround</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_098E315D361BE1CD1172</styleUrl>
+		<Point>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>-79.85062259999999,24.6415325,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0E5B94FE961BE1CF2F77">
+		<name>ruta Bimini Bishop</name>
+		<LookAt>
+			<longitude>-6.628390975348633</longitude>
+			<latitude>49.82812952747611</latitude>
+			<altitude>23.15632185530849</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>30.00000577829018</gx:fovy>
+			<range>99150.50962183625</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0927D749E81BE1CF2F77</styleUrl>
+		<LineString>
+			<coordinates>
+				-79.84559143587097,24.74420120015591,86.96609107273601 -6.451799262534722,49.8806575601797,22.0066331366503 
+			</coordinates>
+		</LineString>
+	</Placemark>
+</Document>
+</kml>
