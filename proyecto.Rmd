@@ -1,0 +1,3075 @@
+---
+title: "proyecto"
+author: ''
+date: "14/2/2022"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. LIBRERIAS NECESARIAS
+
+
+```{r library}
+
+library(sp)  
+library(sf) 
+library(ncdf4)
+library(raster)
+library(rasterVis)
+library(RColorBrewer)
+
+library(maptools)
+library(maps)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ellipsis)
+
+library(TSstudio)
+library(astsa)
+
+
+```
+
+
+
+# 2. CARGA DATOS
+
+## 2.1 Localización archivos
+
+
+```{r file_paths, echo=TRUE}
+
+# set path and filename
+data_path <- "./data/"
+
+folder_fuel <- "fuel/"
+fuel_path <- paste(data_path, folder_fuel, sep="")
+
+
+wind_filename <- "adaptor.mars.internal-1627157739.9280307-9233-3-bfb7e7ba-55aa-4a70-b917-3f52ac1fb472.nc"
+wind_file <- paste(data_path, wind_filename, sep="")
+
+
+wave_filename <- "adaptor.mars.internal-1627158731.6650586-13503-5-7b2a701a-5196-4d19-961f-f557a6c22ae4.nc"
+wave_file <- paste(data_path, wave_filename, sep="")
+
+freak_wave_filename <- "adaptor.mars.internal-1627159551.019192-19965-5-64e8f8ba-76ac-4f6b-88ed-f0f67c8e67c1.nc"
+freak_wave_file <- paste(data_path, freak_wave_filename, sep="")
+
+
+max_indiv_wave_height_filename <- "adaptor.mars.internal-1627160342.4202654-24930-3-c4e15954-a6b6-41c3-ad02-c96804c4d58f.nc"
+max_indiv_wave_height_file <- paste(data_path, max_indiv_wave_height_filename, sep="")
+
+
+
+```
+
+
+
+
+
+## 2.2 DATOS MESOCEÁNICOS
+
+Guardamos los rasterbrick (cubos) de las variables:
+
+
+```{r load_wind_mesoc}
+
+u_wind_comp_10 <- brick(wind_file,varname="u10")
+
+v_wind_comp_10 <- brick(wind_file,varname="v10")
+
+
+u_wind_comp_10
+
+
+
+
+```
+
+
+
+
+```{r plot_wind_mesoc}
+
+raster::plot(u_wind_comp_10$X1993.01.01)
+
+raster::plot(v_wind_comp_10$X1993.01.01)
+
+```
+
+
+
+
+
+
+
+
+
+```{r load_wave_mesoc}
+
+
+
+mean_wave_direc <- brick(wave_file,varname="mwd")
+
+mean_wave_period <- brick(wave_file,varname="mwp")
+
+signif_wave_height <- brick(wave_file,varname="swh")
+
+
+  
+
+mean_wave_direc
+
+
+
+```
+
+
+
+
+
+```{r plot_wave_mesoc}
+
+raster::plot(mean_wave_direc$X1993.01.01)
+
+raster::plot(mean_wave_period$X1993.01.01)
+
+raster::plot(signif_wave_height$X1993.01.01)
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r load_freak_wave_mesoc}
+
+
+bfi_index <- brick(freak_wave_file,varname="bfi")
+
+peak_wave_period <- brick(freak_wave_file,varname="pp1d")
+
+wave_spectral_kurtosis <- brick(freak_wave_file,varname="wsk")
+
+
+peak_wave_period
+  
+
+
+```
+
+
+
+
+
+
+```{r plot_freak_wave_mesoc}
+
+
+raster::plot(bfi_index$X1993.01.01)
+
+raster::plot(peak_wave_period$X1993.01.01)
+
+raster::plot(wave_spectral_kurtosis$X1993.01.01)
+
+
+
+
+```
+
+
+
+
+
+```{r load_max_indiv_height}
+
+
+max_individual_wave_height <- brick(max_indiv_wave_height_file)
+
+
+max_individual_wave_height
+  
+
+
+```
+
+
+
+
+
+
+
+
+```{r plot_max_indiv_height}
+
+raster::plot(max_individual_wave_height$X1993.01.01)
+
+
+
+```
+
+
+
+
+
+## 2.3 DATOS CONSUMO DE FUEL A VELOCIDAD FIJA, RUTA BIMINI -- BISHOP ROCK
+
+
+### 2.3.1. Unir archivos 'nc' de cada año.
+
+
+Función de ayuda para dar formato largo:
+
+
+```{r func_fuel_year}
+
+files_fuel <- list.files(fuel_path)
+
+getnc <- function(fl){
+ 
+  nc <- nc_open(fl)
+ 
+  dat <- ncvar_get(nc) %>% as.data.frame() %>%
+    
+    mutate(speed = nc$dim$speed$vals) %>%
+   
+    pivot_longer(cols = 1:12, names_to = "month", values_to = "fuel") %>%
+   
+    mutate(month = factor(month, levels = c("V1","V2","V3","V4","V5","V6","V7","V8","V9","V10","V11","V12")))
+ 
+  nc_close(nc)
+ 
+  return(dat)}
+
+
+```
+
+
+
+
+Unimos todos los archivos por año de consumo de fuel:
+
+```{r join_fuel_all_years}
+
+alldata <- list()
+
+years <- 1993:2017
+
+for(i in 1:length(files_fuel)){
+ 
+  result <- getnc(paste(fuel_path,files_fuel[i],sep = ""))
+ 
+  result$year <- years[i]
+ 
+  alldata[[i]] <- result
+ 
+}
+
+alldata <- do.call("rbind", alldata)
+
+
+
+```
+
+
+
+
+### 2.3.2. Obtención del dataframe final.
+
+Reorganizamos el dataframe del paso anterior:
+
+
+```{r final_fuel_dataframe}
+
+fuel_fix_vel <- alldata %>%
+  select(speed,year,month,fuel) %>%
+  arrange(speed,year)
+
+fuel_fix_vel
+
+
+```
+
+
+
+
+### 2.3.3. Consumo de fuel por velocidades. Obtención de las series temporales y las tendencias.
+
+
+Comprobamos los valores de velocidad:
+
+
+```{r tes_speed_values}
+
+speed_values <- unique(fuel_fix_vel$speed)
+
+speed_values
+
+
+```
+
+
+
+Podemos filtrar los datos para una velocidad en particular, p, ejplo 6.687772:
+
+```{r test_select_speed}
+
+fuel_speed <- fuel_fix_vel %>% 
+  filter(speed==6.687772) %>%
+  arrange(year) 
+
+head(fuel_speed,24)
+
+
+
+```
+
+
+
+Los datos de la columna fuel para cada velocidad a lo largo del tiempo forman nuestras series temporales. Las almacenamos en una lista, con las etiquetas de cada velocidad:
+
+
+```{r get_fuel_cons_speed_ts}
+
+
+get_fuel_consump_speed_ts <- function(speed_vector) {
+  
+  fuel_consump_speed_ts <- list()
+  
+  for (v in 1:length(speed_vector)) {
+    
+    fuel_speed <- fuel_fix_vel %>%
+      filter(speed==speed_vector[v]) %>%
+      arrange(year) %>%
+      select(fuel)
+    
+    lbl <- as.character(round(speed_vector[v],2))
+    
+    fuel_consump_speed_ts[[lbl]] <- ts(fuel_speed$fuel, start = 1993, frequency=12)
+    
+  }
+  
+  return(fuel_consump_speed_ts)
+  
+
+}
+
+
+
+fuel_cons_speed_ts <- get_fuel_consump_speed_ts(speed_values)
+
+
+
+str(fuel_cons_speed_ts)
+
+
+
+```
+
+
+
+Para verificar representamos para una de las velocidades:
+
+
+```{r test_plot_ts}
+
+plot(fuel_cons_speed_ts$`5.14`)
+
+
+
+```
+
+
+
+Finalmente y a partir de estas series temporales obtenemos las tendencias para cada velocidad:
+
+
+
+```{r get_fuel_cons_speed_trends}
+
+
+get_fuel_consump_speed_trends <- function(l) {
+  
+  
+  get_trend_from_ts <- function(tseries) {
+    
+    tseries.dc <- stl(tseries, s.window = "periodic", na.action = na.omit)
+    
+    trend <- tseries.dc$time.series[,"trend"]
+    
+    return(trend) 
+    
+    
+    }
+  
+  
+  fuel_consump_speed_trends <- lapply(l,FUN = get_trend_from_ts)
+  
+  return(fuel_consump_speed_trends)
+
+  
+}
+
+
+
+fuel_cons_speed_trends <- get_fuel_consump_speed_trends(fuel_cons_speed_ts)
+
+
+str(fuel_cons_speed_trends)
+
+
+
+
+```
+
+
+Representamos la tendencia correspondiente a la gráfica anterior:
+
+
+```{r test_plot_trend}
+
+plot(fuel_cons_speed_trends$`8.23`)
+
+
+
+```
+
+
+
+
+
+
+
+# 3. ESTABLECER PTOS RUTA BIMINI - BISHOP, EXTRACCIÓN DE DATOS MESOCEANICOS.
+
+
+## 3.1 Obtener variable de clase SpatialPoints para la extraccion.
+
+Observando el mapa con coordenadas se proponen los siguientes puntos intermedios (lat,lon) por orden desde Bimini hasta Bishop:
+
+
+(30,-75) ...... (35,-55) ...... (40,-35) ...... (45,-15)
+
+
+Creamos la variable de clase SpatialPoints con dichos puntos:
+
+
+
+```{r get_mesoc_points, message=FALSE}
+
+latitude <- c(30,35,40,45)
+longitude <- c(-75,-55,-35,-15)
+
+mesoc_points <- data.frame(longitude,latitude)
+
+mesoc_points
+
+coordinates(mesoc_points) <- ~ longitude + latitude
+proj4string(mesoc_points) <- CRS("+proj=longlat +datum=WGS84")
+mesoc_points <- spTransform(mesoc_points, CRS(proj4string(mean_wave_direc)))
+
+raster::plot(mean_wave_direc$X1993.01.01)
+raster::plot(mesoc_points, add = TRUE)
+raster::text(mesoc_points,labels=c("1","2","3","4"), add=TRUE,pos=1)
+
+
+
+
+```
+
+
+
+## 3.2 Test de prueba del proceso de extraccion.
+
+
+Probamos a realizar por un lado la extraccion con una de las variables, y las posteriores operaciones para obtener los datos de la serie temporal de dicha variable para los 4 puntos geográficos elegidos:
+
+
+```{r test_extract_pts}
+
+
+points_mean_wave_direc <- raster::extract(mean_wave_direc,mesoc_points,df=TRUE,along=TRUE,cellnumbers=TRUE)
+
+
+points_mean_wave_direc
+
+
+
+```
+
+
+
+Comprobamos que los puntos siguen nuestro orden requerido:
+
+```{r verify_points_along}
+
+# lonlat from cells
+cells_lonlat <- xyFromCell(mean_wave_direc,points_mean_wave_direc$cells)
+
+cells_lonlat
+  
+
+
+```
+
+
+
+Damos formato para tener las series temporales en cada punto como columnas:
+
+
+```{r test_prx_to_get_ts_points}
+
+index <- points_mean_wave_direc$ID
+
+df_aux <- points_mean_wave_direc %>%
+  dplyr::select(-ID,-cells)
+
+row.names(df_aux) <- index
+
+df_aux <- as.data.frame(t(df_aux))
+
+head(df_aux)
+
+
+
+
+```
+
+
+
+Finalmente se obtiene con éxito como resultado las series temporales de la variable de prueba en forma de lista. Es decir de cada variable mesoceánica tendremos una lista con las series temporales (1993 - 2017) en cada uno de los puntos elegidos:
+
+
+```{r test_final_result}
+
+col_to_ts <- function(c) {
+  
+  c_ts <- ts(c, start = 1993, frequency=12)
+  return(c_ts)
+
+  
+}
+
+
+final_test <- lapply(df_aux,FUN = col_to_ts)
+
+str(final_test)
+
+
+
+```
+
+
+
+
+# 3.3 OBTENCION DE LAS SERIES TEMPORALES DE LAS VARIABLES EN LOS PUNTOS ELEGIDOS MEDIANTE LA OPERACIÓN DE EXTRACCION.
+
+
+
+### 3.3.1 FUNCIÓN PARA OBTENER A PARTIR DE LAS VARIABLES MESOCEÁNICAS (RasterBrick) Y LOS PUNTOS (SpatialPoints) LAS SERIES TEMPORALES DE LAS VARIABLES EN DICHOS PUNTOS, MEDIANTE LA OPERACIÓN DE EXTRACCION (raster::extract)
+
+
+
+```{r func_mesocvar_ts_from_points}
+
+mesocvar_ts_from_points <- function(mesoc_rbrick,sp_points) {
+  
+  
+  col_to_ts <- function(c) {
+    
+    c_ts <- ts(c, start = 1993, frequency=12)
+    return(c_ts)
+    
+    
+  }
+  
+  df_extract_points <- raster::extract(mesoc_rbrick,sp_points,df=TRUE,along=TRUE)
+  
+  index <- df_extract_points$ID
+  
+  df_aux <- df_extract_points %>%
+    dplyr::select(-ID)
+  
+  row.names(df_aux) <- index
+  
+  df_aux <- as.data.frame(t(df_aux))
+  
+  
+  l_mesoc_ts_points <- lapply(df_aux,FUN = col_to_ts)
+  
+  return(l_mesoc_ts_points)
+  
+  
+}
+
+
+
+```
+
+
+
+
+
+### 3.3.2 OBTENCIÓN DE LAS VARIABLES (SERIES TEMPORALES EN CADA PUNTO)
+
+
+Obtenemos la primera de las variables (u-component wind 10 meters) y observamos su estructura, con las series temporales correspondientes a cada punto:
+
+
+```{r u10.wind_pts_ts_struct}
+
+u10.wind_pts_ts <- mesocvar_ts_from_points(u_wind_comp_10,mesoc_points)
+
+
+str(u10.wind_pts_ts)
+
+
+
+```
+
+
+
+Obtenemos el resto de variables:
+
+
+```{r rest_vars_pts_ts}
+
+v10.wind_pts_ts <- mesocvar_ts_from_points(v_wind_comp_10,mesoc_points)
+
+m.wave.dir_pts_ts <- mesocvar_ts_from_points(mean_wave_direc,mesoc_points)
+
+m.wave.period_pts_ts <- mesocvar_ts_from_points(mean_wave_period,mesoc_points)
+
+sig.wave.height_pts_ts <- mesocvar_ts_from_points(signif_wave_height,mesoc_points)
+
+bfi_pts_ts <- mesocvar_ts_from_points(bfi_index,mesoc_points)
+
+peak.wave.period_pts_ts <- mesocvar_ts_from_points(peak_wave_period,mesoc_points)
+
+wave.spectr.kurt_pts_ts <- mesocvar_ts_from_points(wave_spectral_kurtosis,mesoc_points)
+
+max.indiv.wave.height_pts_ts <- mesocvar_ts_from_points(max_individual_wave_height,mesoc_points)
+
+
+
+
+```
+
+
+
+
+
+### 3.3.3 COMPROBACIÓN VARIABLES (SERIES TEMPORALES): MUESTRA DE OBTENCIÓN DE DATOS DE INTERÉS PARA EL POSTERIOR ANÁLISIS.
+
+
+Procedemos a la descomposición en componentes (tendencia,estacional,residuos) de las series temporales en los puntos etiquetados como "1" y "3", para la variable "mean wave direction":
+
+
+
+```{r test_decomp_ts}
+
+m.wave.dir.pt1.dc <- stl(m.wave.dir_pts_ts$`1`, s.window = "periodic", na.action = na.omit)
+
+m.wave.dir.pt3.dc <- stl(m.wave.dir_pts_ts$`3`, s.window = "periodic", na.action = na.omit)
+
+
+plot(m.wave.dir.pt1.dc)
+
+plot(m.wave.dir.pt3.dc)
+
+
+
+```
+
+
+
+Mostramos los valores para cada punto:
+
+
+```{r test_boxplot_ts_data}
+
+boxplot(m.wave.dir_pts_ts$`1`)
+
+
+boxplot(m.wave.dir_pts_ts$`3`)
+
+
+```
+
+
+
+
+### 3.3.4. OBTENCIÓN DE LAS VARIABLES TENDENCIAS EN CADA PUNTO.
+
+
+Es de interés para el posterior análisis obtener la tendencia de las series temporales (trend component) para las variables en cada punto:
+
+
+```{r test_trend_mesoc}
+
+plot(m.wave.dir.pt3.dc$time.series[,"trend"])
+
+
+
+```
+
+
+
+
+#### 3.3.4.1. FUNCIÓN PARA OBTENER LAS TENDENCIAS DE LAS VARIABLES EN TODOS LOS PUNTOS, A PARTIR DE LAS VARIABLES OBTENIDAS ANTERIORES.
+
+
+
+```{r function_get_mesoc_pts_trend_from_ts}
+
+
+get_mesoc_pts_trend_from_ts <- function(l) {
+  
+  
+  get_trend_from_ts <- function(tseries) {
+    
+    tseries.dc <- stl(tseries, s.window = "periodic", na.action = na.omit)
+    
+    trend <- tseries.dc$time.series[,"trend"]
+    
+    return(trend) 
+    
+    
+    }
+  
+  
+  
+  mesoc_pts_trend <- lapply(l,FUN = get_trend_from_ts)
+  
+  return(mesoc_pts_trend)
+
+  
+}
+
+
+
+
+```
+
+
+
+
+#### 3.3.4.2. OBTENCIÓN DE LAS TENDENCIAS DE LAS VARIABLES MESOCEÁNICAS EN TODOS LOS PUNTOS.
+
+
+Guardamos los datos de tendencia de todas las variables, para los puntos geográficos elegidos. De nuevo para cada variable se almacena en forma de lista las distintas tendencia de cada uno de los puntos:
+
+
+```{r get_mesoc_vars_pts_trend}
+
+
+
+u10.wind_pts_trend <- get_mesoc_pts_trend_from_ts(u10.wind_pts_ts)
+
+v10.wind_pts_trend <- get_mesoc_pts_trend_from_ts(v10.wind_pts_ts)
+
+m.wave.dir_pts_trend <- get_mesoc_pts_trend_from_ts(m.wave.dir_pts_ts)
+
+m.wave.period_pts_trend <- get_mesoc_pts_trend_from_ts(m.wave.period_pts_ts)
+
+sig.wave.height_pts_trend <- get_mesoc_pts_trend_from_ts(sig.wave.height_pts_ts)
+
+bfi_pts_trend <- get_mesoc_pts_trend_from_ts(bfi_pts_ts)
+
+peak.wave.period_pts_trend <- get_mesoc_pts_trend_from_ts(peak.wave.period_pts_ts)
+
+wave.spectr.kurt_pts_trend <- get_mesoc_pts_trend_from_ts(wave.spectr.kurt_pts_ts)
+
+max.indiv.wave.height_pts_trend <- get_mesoc_pts_trend_from_ts(max.indiv.wave.height_pts_ts)
+
+
+
+
+
+
+```
+
+
+
+
+Como muestra observamos la tendencia de la variable "mean wave direction" en los puntos etiquetados "1" y "3":
+
+
+```{r test_mesoc_vars_pts_trend}
+
+str(m.wave.dir_pts_trend)
+
+class(m.wave.dir_pts_trend$`1`)
+
+
+plot(m.wave.dir_pts_trend$`1`)
+plot(m.wave.dir_pts_trend$`3`)
+
+
+
+```
+
+
+
+
+
+
+# 4. ANALISIS.
+
+
+## 4.1. CONSUMO DE COMBUSTIBLE: tendencia a lo largo del tiempo
+
+
+Pasamos a analizar las tendencias del consumo de fuel para las distintas velocidades. 
+
+
+```{r fuel_trends_df}
+
+fuel_speed_trends_df <- as.data.frame(fuel_cons_speed_trends) %>%
+  mutate(year=as.character(floor(time(fuel_cons_speed_trends$`5.14`)))) %>%
+  mutate(month=as.character(cycle(fuel_cons_speed_trends$`5.14`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything())
+
+head(fuel_speed_trends_df,25)
+  
+
+
+
+```
+
+
+
+
+```{r fuel_trends_df_long}
+
+fuel_speed_df_long <- fuel_speed_trends_df %>%
+  gather(key = "variable", value = "value", -date)
+
+fuel_speed_df_long
+
+
+
+
+```
+
+
+
+### 4.1.1. TENDENCIA EN TODO EL PERIODO DE ESTUDIO: 1993 - 2017
+
+Pasamos a dibujar las tendencias, primero en un único gráfico:
+
+
+```{r graf_all_speeds, message=FALSE}
+
+ggplot(fuel_speed_df_long, aes(x = date, y = value)) +
+  geom_line(aes(color = variable), size = 1) +
+  scale_colour_discrete() +
+  labs(title = "Fuel consumption trends vs speed (I)", color="speeds") +
+  ylab("fuel consumption, kg. (fuel oil) or m^3 (gas)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+A continuación las tendencias por separado:
+
+
+```{r graf_facet_speeds, message=FALSE, fig.width=15, fig.height=14}
+
+ggplot(fuel_speed_df_long, aes(x = date, y = value)) +
+  geom_line(aes(color = variable), size = 1) +
+  facet_wrap(~variable, scales="free", ncol=2) +
+  scale_colour_discrete() +
+  labs(title = "Fuel consumption trends vs speed (II)", color="speeds") +
+  ylab("fuel consumption, kg. (fuel oil) or m^3 (gas)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+Se puede observar por las graficas de tendencia de consumo de fuel para las distintas velocidades, tanto la conjunta como por separado, que dichas tendencias guardan si no el mismo muy similar patrón a lo largo del tiempo, diferenciandose solo en los valores de combustible, que como era de esperar son mayores según aumenta la velocidad.
+
+
+
+### 4.1.2. Máximo consumo de fuel: Enero 2013
+
+```{r loc_max_fuel_consump_time}
+
+which.max(fuel_speed_trends_df$X5.14)
+
+which.max(fuel_speed_trends_df$X6.69)
+
+which.max(fuel_speed_trends_df$X8.23)
+
+
+fuel_speed_trends_df$date[which.max(fuel_speed_trends_df$X8.23)]
+
+
+```
+
+ 
+Comprobamos que **el valor máximo exacto para todas las velocidades** se corresponde con Enero de 2013
+
+
+
+
+
+### 4.1.3. Periodo de valores altos de consumo de fuel: 1999 - mediados 2003
+
+
+```{r period_high_fuel_consump, fig.width=10, fig.height=10}
+
+library(lubridate)
+
+
+period_high_fuel_consumpt <- fuel_speed_df_long %>%
+  filter(year(date)>=1999 & year(date)<=2002)
+
+ggplot(period_high_fuel_consumpt, aes(x = date, y = value)) +
+  geom_line(aes(color = variable), size = 1) +
+  facet_wrap(~variable, scales="free", ncol=2) +
+  scale_colour_discrete() +
+  labs(title = "Period of high fuel consumption: 1999 - 2003", color="speeds") +
+  ylab("fuel consumption, kg. (fuel oil) or m^3 (gas)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+### 4.1.4. Periodo de mayor fluctuacion: 2005 - 2007
+
+
+```{r period_high_fluct_fuel_consump, fig.width=10, fig.height=10}
+
+library(lubridate)
+
+
+period_high_fluct_fuel_consumpt <- fuel_speed_df_long %>%
+  filter(year(date)>=2004 & year(date)<=2007)
+
+ggplot(period_high_fluct_fuel_consumpt, aes(x = date, y = value)) +
+  geom_line(aes(color = variable), size = 1) +
+  facet_wrap(~variable, scales="free", ncol=2) +
+  scale_colour_discrete() +
+  labs(title = "Period of greatest fluctuation: 2005 - 2008", color="speeds") +
+  ylab("fuel consumption, kg. (fuel oil) or m^3 (gas)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+
+### 4.1.5. Descripción de las series temporales de consumo de fuel.
+
+
+Ya se ha visto anteriormente la casi igualdad en las tendencias de consumo para las distintas velocidades. Pasamos a examinar las series temporales para 3 de las velocidades (mínima,intermedia,máxima):
+
+
+
+```{r init_descr_ts_fuel}
+
+descrp_fuel_ts <- ts(data = data.frame(speed_5.14=fuel_cons_speed_ts$`5.14`,speed_6.69=fuel_cons_speed_ts$`6.69`,speed_8.23=fuel_cons_speed_ts$`8.23`), start = 1993, frequency = 12)
+
+
+ts_info(descrp_fuel_ts)
+
+
+
+```
+
+
+
+
+```{r graf_ts_fuel}
+
+ts_plot(descrp_fuel_ts,
+title = "Fuel consumption (speed)",
+type = "multiple")
+
+
+
+```
+
+
+Como observamos por las gráficas las series temporales para las distintas velocidades tienen un trazado prácticamente idéntico, diferenciandose claro esta en los valores de consumo de fuel (a mayor velocidad más consumo)
+
+
+
+#### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_fuel, fig.width=10, fig.height=8}
+
+par(mfrow=c(3,1))
+
+spec_5.14 <- spec.pgram(fuel_cons_speed_ts$`5.14`,taper=0,log='no')
+
+spec_6.69 <- spec.pgram(fuel_cons_speed_ts$`6.69`,taper=0,log='no')
+
+spec_8.23 <- spec.pgram(fuel_cons_speed_ts$`8.23`,taper=0,log='no')
+
+
+```
+
+
+Resulta curioso observar que aparte del periodo anual predominante (al menos en 2) nos aparece otro periodo en distinto grado correspondiente a 2 años.
+
+
+Completamos este apartado en cuanto a la estacionalidad y existencia de ciclos con las siguientes gráficas. En primer lugar un mapa de calor, en la que dada la similitud observada en las distintas series temporales de consumo por velocidad nos quedaremos para esta gráfica con dos velocidades, la mínima y la máxima.
+
+
+```{r ts_fuel_heatmap}
+
+ts_heatmap(fuel_cons_speed_ts$`5.14`, color = "Reds", title = "Fuel consumption (speed=5.14)")
+
+ts_heatmap(fuel_cons_speed_ts$`8.23`, color = "Reds", title = "Fuel consumption (speed=8.23)")
+
+
+```
+
+
+Podemos observar señales de existencia de ciclo anual, con variaciones debidas quizás a las excepciones lógicas dado el rango de años u otros posibles factores puntuales influyentes (meteorológicos, etc.).
+
+El consumo menor se corresponde con el mes de Julio, con valores bajos también en su anterior y posterior. Los valores más altos se concentran en general en los meses de Noviembre y Diciembre, con más excepciones.
+
+
+ - El comportamiento más uniforme en los meses de verano (menor consumo) y más cambiante en los meses de Noviembre a Enero, ennuesttro rango de estudio 1993-2017, se puede observar mejor en la siguiente gráfica del consumo a la velocidad intermedia (6.69 m/s):
+
+
+
+```{r ts_month_boxplot}
+
+ts_seasonal(fuel_cons_speed_ts$`6.69`,type ="box")
+
+
+
+```
+
+
+
+
+
+## 4.2. VARIABLES MESOCEÁNICAS. 
+
+
+### 4.2.1. U-component wind 10 meters
+
+
+#### 4.2.1.1. Distribución para todo el periodo de estudio. Boxplot. Outliers
+
+
+
+```{r boxplot_u10, message=FALSE}
+
+
+u10_values_pts <- as.data.frame(u10.wind_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(u10_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot U-component wind 10 meters (points)",fill = "points") +
+  xlab("points") +
+  ylab("value (m/s)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+
+
+Veamos a que fechas se corresponden los outliers. Probamos con el punto '1':
+
+
+```{r u10_outliers}
+
+
+box.u10 <- boxplot.stats(u10.wind_pts_ts$`1`)
+
+out_values <- box.u10$out
+
+
+out_index <- which(u10.wind_pts_ts$`1` %in% box.u10$out)
+
+
+# get outliers year and month vectors, join and cast to Date
+
+y <- as.character(floor(time(u10.wind_pts_ts$`1`)[out_index]))
+m <- as.character(cycle(u10.wind_pts_ts$`1`)[out_index])
+
+out_dates <- as.Date(paste(y,m,"01",sep = "-"))
+
+
+
+data.frame(out_dates,out_values) 
+
+
+```
+
+
+
+Realizada la prueba escribimos funcion para devolver los resultados en todos los puntos:
+
+
+```{r function_outliers}
+
+
+outliers_date_ts <- function(mesoc_var_pts_ts_list) {
+  
+  outliers_df <- function(tseries) {
+    
+    df <- data.frame()
+    
+    box <- boxplot.stats(tseries)
+    
+    out_values <- box$out
+    
+    out_index <- which(tseries %in% box$out)
+    
+    if (length(out_index) != 0) {
+      
+      # get outliers year and month vectors, join and cast to Date
+      y <- as.character(floor(time(tseries)[out_index]))
+      m <- as.character(cycle(tseries)[out_index])
+      out_dates <- as.Date(paste(y,m,"01",sep = "-"))
+      
+      df <- data.frame(out_dates,out_values)
+      
+    }
+    
+    return(df)
+    
+  }
+  
+  
+  return(lapply(mesoc_var_pts_ts_list,FUN = outliers_df)) 
+  
+  
+}
+
+
+outliers_date_ts(u10.wind_pts_ts)
+
+
+
+```
+
+
+NOTA: contrastar las fechas con periodos de valores altos y de máxima fluctuación
+
+
+
+#### 4.2.1.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_u10}
+
+descrp_u10_ts <- ts(data = data.frame(pnt_1=u10.wind_pts_ts$`1`,pnt_2=u10.wind_pts_ts$`2`,pnt_3=u10.wind_pts_ts$`3`,pnt_4=u10.wind_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_u10_ts, title = "U10-component wind (points)", type = "multiple")
+
+
+
+
+```
+
+
+Como era de esperar al ser distintos puntos geográficos los trazados de las series temporales no guardan similitud.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_u10, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_u10.pt1 <- spec.pgram(u10.wind_pts_ts$`1`,taper=0,log='no')
+
+spec_u10.pt2 <- spec.pgram(u10.wind_pts_ts$`2`,taper=0,log='no')
+
+spec_u10.pt3 <- spec.pgram(u10.wind_pts_ts$`3`,taper=0,log='no')
+
+spec_u10.pt4 <- spec.pgram(u10.wind_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+En los primeros dos puntos se observa la existencia de ciclo al año y 2 años. En las otras 2 se acompañan de otras componentes menores, en mayor grado en el punto 4.
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_u10}
+
+ts_heatmap(u10.wind_pts_ts$`1`, color = "Reds", title = "U10-component wind (pt. 1)")
+
+ts_heatmap(u10.wind_pts_ts$`3`, color = "Reds", title = "U10-component wind (pt. 3)")
+
+
+```
+
+
+Sin haber patrón que pueda señalar la existencia de una componente mayoritaria anual, si podemos afirmar que en general los valores máximos se sulen encontrar en Enero y Febrero.
+
+En cualquier caso y como se podía esperar para las variables mesoceánicas éstas presentan una mayor variación y espectogramas más complejos que no presentan una única componente (frecuencia). 
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_u10}
+
+descrp_u10_trends <- ts(data = data.frame(pnt_1=u10.wind_pts_trend$`1`,pnt_2=u10.wind_pts_trend$`2`,pnt_3=u10.wind_pts_trend$`3`,pnt_4=u10.wind_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_u10_trends, title = "U10-component wind and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+Las tendencias entre los puntos presentan distintos trazados como era esperable.
+
+NOTA: COMPARAR CON LOS PERIODOS DE VALORES ALTOS Y DE MÁXIMA FLUCTUACIÓN, POR SI HAY ALGUNA RELACIÓN
+Primero de valores muy bajos (y distinta distribución como vimos al resto puntos) dificil comparación
+Resto (¿alta mar?) se observan algunos patrones.
+
+
+
+#### 4.2.1.3. Scatter plot: fuel consumption vs U-component wind 10 meters (points).
+
+
+Dado que como hemos visto la tendencia del consumo de fuel para las distintas velocidades siguen un patrón muy similar, tomamos como referencia los valores (serie temporal) para el valor intermedio entre las velocidades (6.69 m/s.)
+
+
+```{r scatter_u10_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+u10_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(u10_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot U-component wind 10 meters (points) vs. fuel consumption",color = "points") +
+  xlab("U-component wind 10 meters [m/s]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+Dispersión, no se visualiza recta posible
+
+
+
+
+
+
+### 4.2.2. V-component wind 10 meters.
+
+
+#### 4.2.2.1. Boxplot. Outliers
+
+
+
+```{r boxplot_v10, message=FALSE}
+
+
+v10_values_pts <- as.data.frame(v10.wind_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(v10_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot V-component wind 10 meters (points)",fill = "points") +
+  xlab("points") +
+  ylab("value (m/s)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+Comentar semejanzas, diferencias.
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r v10_outliers}
+
+outliers_date_ts(v10.wind_pts_ts)
+
+
+
+```
+
+
+Contrastar con periodos.
+
+
+
+#### 4.2.2.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_v10}
+
+descrp_v10_ts <- ts(data = data.frame(pnt_1=v10.wind_pts_ts$`1`,pnt_2=v10.wind_pts_ts$`2`,pnt_3=v10.wind_pts_ts$`3`,pnt_4=v10.wind_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_v10_ts, title = "v10-component wind (points)", type = "multiple")
+
+
+
+
+```
+
+
+Como era de esperar al ser distintos puntos geográficos los trazados de las series temporales no guardan similitud.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_v10, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_v10.pt1 <- spec.pgram(v10.wind_pts_ts$`1`,taper=0,log='no')
+
+spec_v10.pt2 <- spec.pgram(v10.wind_pts_ts$`2`,taper=0,log='no')
+
+spec_v10.pt3 <- spec.pgram(v10.wind_pts_ts$`3`,taper=0,log='no')
+
+spec_v10.pt4 <- spec.pgram(v10.wind_pts_ts$`4`, taper=0,log='no')
+
+
+```
+
+
+En este caso la componente a frecuencia 2 solo destaca en el punto 2 y algo menos en los 1 y 3 
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_v10}
+
+ts_heatmap(v10.wind_pts_ts$`1`, color = "Reds", title = "v10-component wind (pt. 1)")
+
+ts_heatmap(v10.wind_pts_ts$`3`, color = "Reds", title = "v10-component wind (pt. 3)")
+
+
+```
+
+
+En el punto 1 con espectrograma mas plano si se observa cierta uniformidad anual, con valores altos positivos en Julio y extremos negativos en Noviembre y Diciembre.
+
+En el segundo de espectrograma más complejo vemos como se pierde esta uniformidad.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_v10}
+
+descrp_v10_trends <- ts(data = data.frame(pnt_1=v10.wind_pts_trend$`1`,pnt_2=v10.wind_pts_trend$`2`,pnt_3=v10.wind_pts_trend$`3`,pnt_4=v10.wind_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_v10_trends, title = "v10-component wind and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+
+NOTA: COMPARAR CON LOS PERIODOS DE VALORES ALTOS Y DE MÁXIMA FLUCTUACIÓN, POR SI HAY ALGUNA RELACIÓN
+Parece q no se observa relación
+
+
+
+#### 4.2.2.3. Scatter plot: fuel consumption vs V-component wind 10 meters (points).
+
+
+```{r scatter_v10_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+v10_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(v10_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot V-component wind 10 meters (points) vs. fuel consumption",color = "points") +
+  xlab("V-component wind 10 meters [m/s]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+En los 2 primeros puntos un mayor agrupamiento, dada la ausencia en los otros 2 no parece significativo.
+
+
+
+
+### 4.2.3. Mean wave direction.
+
+
+#### 4.2.3.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_mwd, message=FALSE}
+
+
+mwd_values_pts <- as.data.frame(m.wave.dir_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(mwd_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot Mean wave direction (points)",fill = "points") +
+  xlab("points") +
+  ylab("degrees relative North (clockwise)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+
+NOTA: hablar de la concentración y diferencias
+
+
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r mwd_outliers}
+
+outliers_date_ts(m.wave.dir_pts_ts)
+
+
+
+```
+
+
+Repasar fechas, Contrastar con periodos
+
+
+
+#### 4.2.3.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_mwd}
+
+descrp_mwd_ts <- ts(data = data.frame(pnt_1=m.wave.dir_pts_ts$`1`,pnt_2=m.wave.dir_pts_ts$`2`,pnt_3=m.wave.dir_pts_ts$`3`,pnt_4=m.wave.dir_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_mwd_ts, title = "Mean wave direction (points)", type = "multiple")
+
+
+
+
+```
+
+Ptos 2 y 3 trazado similar (sin correspondecia temporal) se detecta concentración alrededor de 300 y outliers (boxplots)
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_mwd, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_mwd.pt1 <- spec.pgram(m.wave.dir_pts_ts$`1`,taper=0,log='no')
+
+spec_mwd.pt2 <- spec.pgram(m.wave.dir_pts_ts$`2`,taper=0,log='no')
+
+spec_mwd.pt3 <- spec.pgram(m.wave.dir_pts_ts$`3`,taper=0,log='no')
+
+spec_mwd.pt4 <- spec.pgram(m.wave.dir_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+Espectros complejos puntos 3 y 4. Planos en el uno y 2, con la sorpresa para el primero de frecuencia 2 dominante.
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_mwd}
+
+ts_heatmap(m.wave.dir_pts_ts$`1`, color = "Reds", title = "Mean wave direcction (pt. 1)")
+
+ts_heatmap(m.wave.dir_pts_ts$`3`, color = "Reds", title = "Mean wave direcction (pt. 3)")
+
+
+```
+
+
+Como habiamos visto en el punto 1 se puede observar cierto patrón anual, con valores medios en Julio, bajos en Octubre y de forma menos uniforme extremos en Enero y  Para el punto 3 con espectro mucho más complejo no es posible.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_mwd}
+
+descrp_mwd_trends <- ts(data = data.frame(pnt_1=m.wave.dir_pts_trend$`1`,pnt_2=m.wave.dir_pts_trend$`2`,pnt_3=m.wave.dir_pts_trend$`3`,pnt_4=m.wave.dir_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_mwd_trends, title = "v10-component wind and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+Contrastar con periodos de tiempo. No parece haber relación.
+
+
+
+
+#### 4.2.3.3. Scatter plot: fuel consumption vs Mean wave direction (points).
+
+
+```{r scatter_mwd_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+mwd_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(mwd_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot Mean wave direction (points) vs. fuel consumption",color = "points") +
+  xlab("Mean wave direction [degrees relative North (clockwise)]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+INterpretar direccion respecto al gasto combustible, comentar agrupacion (anteriores conclusiones no generales)
+
+
+
+
+
+### 4.2.4. Mean wave period.
+
+
+#### 4.2.4.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_mwp, message=FALSE}
+
+
+mwp_values_pts <- as.data.frame(m.wave.period_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(mwp_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot Mean wave period (points)",fill = "points") +
+  xlab("points") +
+  ylab("period [s.]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+
+Comentar valores y diferencias
+
+
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r mwp_outliers}
+
+outliers_date_ts(m.wave.period_pts_ts)
+
+
+
+```
+
+
+Pocos outliers y sin relacion (tiempos separados)
+
+
+
+#### 4.2.4.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_mwp}
+
+descrp_mwp_ts <- ts(data = data.frame(pnt_1=m.wave.period_pts_ts$`1`,pnt_2=m.wave.period_pts_ts$`2`,pnt_3=m.wave.period_pts_ts$`3`,pnt_4=m.wave.period_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_mwp_ts, title = "Mean wave period (points)", type = "multiple")
+
+
+
+
+```
+
+
+Trazados similares para los puntos del 2 al 4,observandose cierta periodicidad.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_mwp, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_mwp.pt1 <- spec.pgram(m.wave.period_pts_ts$`1`,taper=0,log='no')
+
+spec_mwp.pt2 <- spec.pgram(m.wave.period_pts_ts$`2`,taper=0,log='no')
+
+spec_mwp.pt3 <- spec.pgram(m.wave.period_pts_ts$`3`,taper=0,log='no')
+
+spec_mwp.pt4 <- spec.pgram(m.wave.period_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+Predominio claro en todas de la frecuencia 1. Como ya se había observado en el trazado (periodicidad clara), espectros planos en los puntos 2 al 4 exceptuando la frecuencia 1. 
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_mwp}
+
+ts_heatmap(m.wave.period_pts_ts$`1`, color = "Reds", title = "Mean wave period (pt. 1)")
+
+ts_heatmap(m.wave.period_pts_ts$`3`, color = "Reds", title = "Mean wave period (pt. 3)")
+
+
+```
+
+
+En el punto 3 con espectro de frecuencia predominante observamos claro patrón anual, con extremos bajos en Julio y los altos en Diciembre y Enero.
+
+Para el punto 1 de espectro algo más complejo el patrón no es tan claro
+
+
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_mwp}
+
+descrp_mwp_trends <- ts(data = data.frame(pnt_1=m.wave.period_pts_trend$`1`,pnt_2=m.wave.period_pts_trend$`2`,pnt_3=m.wave.period_pts_trend$`3`,pnt_4=m.wave.period_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_mwp_trends, title = "Mean wave period and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+Contrastar con periodos. Quizas patrón para periodo altos consumos.
+
+
+
+
+#### 4.2.4.3. Scatter plot: fuel consumption vs Mean wave period (points).
+
+
+```{r scatter_mwp_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+mwp_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(mwp_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot Mean wave period (points) vs. fuel consumption",color = "points") +
+  xlab("Mean wave period [s.]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+Aunque agrupacion a menos, parece cierta relacion lineal
+
+
+
+
+### 4.2.5. Significant wave height.
+
+
+#### 4.2.5.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_swh, message=FALSE}
+
+
+swh_values_pts <- as.data.frame(sig.wave.height_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(swh_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot Significant wave height (points)",fill = "points") +
+  xlab("points") +
+  ylab("signf. wave height [m.]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+Comentar valores, diferencias
+
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r swh_outliers}
+
+outliers_date_ts(sig.wave.height_pts_ts)
+
+
+
+```
+
+
+Ausencia outliers
+
+
+
+#### 4.2.5.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_swh}
+
+descrp_swh_ts <- ts(data = data.frame(pnt_1=sig.wave.height_pts_ts$`1`,pnt_2=sig.wave.height_pts_ts$`2`,pnt_3=sig.wave.height_pts_ts$`3`,pnt_4=sig.wave.height_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_swh_ts, title = "Significant wave height (points)", type = "multiple")
+
+
+
+
+```
+
+
+Trazado con cierta similitud en los puntos 2 al 4, observandose señales de periodicidad.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_swh, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_swh.pt1 <- spec.pgram(sig.wave.height_pts_ts$`1`,taper=0,log='no')
+
+spec_swh.pt2 <- spec.pgram(sig.wave.height_pts_ts$`2`,taper=0,log='no')
+
+spec_swh.pt3 <- spec.pgram(sig.wave.height_pts_ts$`3`,taper=0,log='no')
+
+spec_swh.pt4 <- spec.pgram(sig.wave.height_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+Clara frecuencia dominante anual con resto plano, confirmando la periodicidad.
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_swh}
+
+ts_heatmap(sig.wave.height_pts_ts$`1`, color = "Reds", title = "Significant wave height (pt. 1)")
+
+ts_heatmap(sig.wave.height_pts_ts$`3`, color = "Reds", title = "Significant wave height (pt. 3)")
+
+
+```
+
+
+En ambos se observa patrón anual, con extremos bajos en Julio y altos en Enero
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_swh}
+
+descrp_swh_trends <- ts(data = data.frame(pnt_1=sig.wave.height_pts_trend$`1`,pnt_2=sig.wave.height_pts_trend$`2`,pnt_3=sig.wave.height_pts_trend$`3`,pnt_4=sig.wave.height_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_swh_trends, title = "Significant wave height and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+Periodo altos consumos, ptos 3 y 4, algo menos el 2. Priodo fluctuación solo pts 3 y 4
+
+
+
+
+
+#### 4.2.5.3. Scatter plot: fuel consumption vs Significant Wave Height (points).
+
+
+```{r scatter_swh_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+swh_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(swh_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot Significant wave height (points) vs. fuel consumption",color = "points") +
+  xlab("signf. wave height [m.]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+Con agrupación a menos, parece cierta relacion lineal
+
+
+
+
+### 4.2.6. Benjamin-Feir Index BFI 
+
+
+#### 4.2.6.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_bfi, message=FALSE}
+
+
+bfi_values_pts <- as.data.frame(bfi_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(bfi_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Boxplot BFI (points)",fill = "points") +
+  xlab("points") +
+  ylab("BFI [dimensionless]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+SEÑALAR VALORES BAJOS Y POCA VARIANZA, que ya se veian en el mapa de enero de 1993
+
+
+
+No vale la pena analizar outliers
+
+
+
+#### 4.2.6.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_bfi}
+
+descrp_bfi_ts <- ts(data = data.frame(pnt_1=bfi_pts_ts$`1`,pnt_2=bfi_pts_ts$`2`,pnt_3=bfi_pts_ts$`3`,pnt_4=bfi_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_bfi_ts, title = "BFI (points)", type = "multiple")
+
+
+
+
+```
+
+
+Dados los valores tan bajos (casi ruido) y su uniformidad (patente mapa) pasamos a examinar directamente la tendencia.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_bfi}
+
+descrp_bfi_trends <- ts(data = data.frame(pnt_1=bfi_pts_trend$`1`,pnt_2=bfi_pts_trend$`2`,pnt_3=bfi_pts_trend$`3`,pnt_4=bfi_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_bfi_trends, title = "BFI trend (points)", type = "multiple")
+
+
+
+
+```
+
+
+No se observa relación con periodos (no ayuda el infimo rango de valores de la variable) 
+
+
+
+
+#### 4.2.6.3. Scatter plot: fuel consumption vs Benjamin-Feir Index BFI (points).
+
+
+```{r scatter_bfi_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+bfi_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(bfi_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "BFI (points) vs. fuel consumption",color = "points") +
+  xlab("BFI [dimensionless]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+Comentar no se pueden sacar conclusiones.
+
+
+
+
+### 4.2.7. Peak wave period 
+
+
+#### 4.2.7.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_pwp, message=FALSE}
+
+
+pwp_values_pts <- as.data.frame(peak.wave.period_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(pwp_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Peak wave period (points)",fill = "points") +
+  xlab("points") +
+  ylab("Peak wave period [s.]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+Comentar valores y diferencias
+
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r pwp_outliers}
+
+outliers_date_ts(peak.wave.period_pts_ts)
+
+
+
+```
+
+
+Solo en el primer punto, agosto y septiembre 1995 (golfo mexico). Contrastar con periodos
+
+
+
+
+#### 4.2.7.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_pwp}
+
+descrp_pwp_ts <- ts(data = data.frame(pnt_1=peak.wave.period_pts_ts$`1`,pnt_2=peak.wave.period_pts_ts$`2`,pnt_3=peak.wave.period_pts_ts$`3`,pnt_4=peak.wave.period_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_pwp_ts, title = "Peak wave period (points)", type = "multiple")
+
+
+
+
+```
+
+
+Se observa cierta semejanza en el trazado de los puntos 1 al 4. En los mismos también parec verse señales de cierta periodicidad.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_pwp, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_pwp.pt1 <- spec.pgram(peak.wave.period_pts_ts$`1`,taper=0,log='no')
+
+spec_pwp.pt2 <- spec.pgram(peak.wave.period_pts_ts$`2`,taper=0,log='no')
+
+spec_pwp.pt3 <- spec.pgram(peak.wave.period_pts_ts$`3`,taper=0,log='no')
+
+spec_pwp.pt4 <- spec.pgram(peak.wave.period_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+Se comprueba periodicidad con frecuencia anual y resto espectro plano en los puntos 2 al 4. En el punto 1 predomina frecuencia anual con espectro más complejo.
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_pwp}
+
+ts_heatmap(peak.wave.period_pts_ts$`1`, color = "Reds", title = "Peak wave period (pt. 1)")
+
+ts_heatmap(peak.wave.period_pts_ts$`3`, color = "Reds", title = "Peak wave period (pt. 3)")
+
+
+```
+
+Para el punto 3 se comprueba periodicidad anual con valores extremos altos en diciembre y enero, y los bajos en Julio. En el pto 1 de espectro más complejo no queda claro.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_pwp}
+
+descrp_pwp_trends <- ts(data = data.frame(pnt_1=peak.wave.period_pts_trend$`1`,pnt_2=peak.wave.period_pts_trend$`2`,pnt_3=peak.wave.period_pts_trend$`3`,pnt_4=peak.wave.period_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_pwp_trends, title = "Peak wave period and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+
+Contrastar con periodos. Algo de coincidencia para el máximo
+
+
+
+#### 4.2.7.3. Scatter plot: fuel consumption vs Peak wave period (points).
+
+
+```{r scatter_pwp_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+pwp_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(pwp_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Peak wave period (points) vs. fuel consumption",color = "points") +
+  xlab("Peak wave period [s.]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+Concentracion a menos, parece cierta relacion lineal
+
+
+
+### 4.2.8. Wave spectral kurtosis.
+
+
+#### 4.2.8.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_wsk, message=FALSE}
+
+
+wsk_values_pts <- as.data.frame(wave.spectr.kurt_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(wsk_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Wave spectral kurtosis (points)",fill = "points") +
+  xlab("points") +
+  ylab("Wave spectral kurtosis [dimensionless]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+
+Al igual que BFI, valores muy bajos y poca varianza. Recordar mapa de un solo color
+No vale la pena analizar outliers.
+
+
+En cuanto al análisis temporal, al igual que con la variable BFI los valores muy bajos muy baja varianza hacen que la series temporales sean practicamente ruido, sin influencia clara.
+
+
+
+
+
+#### 4.2.8.2. Scatter plot: fuel consumption vs Wave spectral kurtosis (points).
+
+
+```{r scatter_wsk_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+wsk_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(wsk_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Wave spectral kurtosis (points) vs. fuel consumption",color = "points") +
+  xlab("Wave spectral kurtosis [dimensionless]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+Cortos valores y rangos, ptos muy dispersos.
+
+
+
+
+### 4.2.9. Maximum individual wave height.
+
+
+#### 4.2.9.1. Boxplot. Outliers.
+
+
+
+```{r boxplot_miwh, message=FALSE}
+
+
+miwh_values_pts <- as.data.frame(max.indiv.wave.height_pts_ts) %>%
+  mutate(year=as.character(floor(time(u10.wind_pts_ts$`1`)))) %>%
+  mutate(month=as.character(cycle(u10.wind_pts_ts$`1`))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+ggplot(miwh_values_pts, aes(x = variable, y = value)) +
+  geom_boxplot(aes(fill = variable)) +
+  scale_fill_discrete() +
+  labs(title = "Maximum individual wave height (points)",fill = "points") +
+  xlab("points") +
+  ylab("Max. individual wave height [m.]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+Comentar valores y diferencias
+
+
+
+Veamos a que fechas se corresponden los outliers:
+
+
+```{r miwh_outliers}
+
+outliers_date_ts(max.indiv.wave.height_pts_ts)
+
+
+
+```
+
+
+Pocos outliers
+
+
+
+#### 4.2.9.2. Análisis serie temporal.
+
+
+```{r init_descr_ts_miwh}
+
+descrp_miwh_ts <- ts(data = data.frame(pnt_1=max.indiv.wave.height_pts_ts$`1`,pnt_2=max.indiv.wave.height_pts_ts$`2`,pnt_3=max.indiv.wave.height_pts_ts$`3`,pnt_4=max.indiv.wave.height_pts_ts$`4`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_miwh_ts, title = "Max. Individual wave height (points)", type = "multiple")
+
+
+
+
+```
+
+
+De nuevo similitudes en el trazado en los puntos 2 al 4, y en mnor medida pero también para el primero. Se vislumbra la existencia de periodicidad en los primeros puntos nombrados.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_miwh, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_miwh.pt1 <- spec.pgram(max.indiv.wave.height_pts_ts$`1`,taper=0,log='no')
+
+spec_miwh.pt2 <- spec.pgram(max.indiv.wave.height_pts_ts$`2`,taper=0,log='no')
+
+spec_miwh.pt3 <- spec.pgram(max.indiv.wave.height_pts_ts$`3`,taper=0,log='no')
+
+spec_miwh.pt4 <- spec.pgram(max.indiv.wave.height_pts_ts$`4`,taper=0,log='no')
+
+
+```
+
+
+Clara periodicidad anual en todos los puntos, con resto del espectro plano.
+
+
+Vamos a observar el mapa de calor para los puntos 1 y 3, que presentan la mayor diferencia:
+
+
+
+```{r heatmap_miwh}
+
+ts_heatmap(max.indiv.wave.height_pts_ts$`1`, color = "Reds", title = "Max. Individual wave height (points) (pt. 1)")
+
+ts_heatmap(max.indiv.wave.height_pts_ts$`3`, color = "Reds", title = "Max. Individual wave height (points) (pt. 3)")
+
+
+```
+
+
+Patrón anual claro con extremos ionferiores en julio y los superiores en enero.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_miwh}
+
+descrp_miwh_trends <- ts(data = data.frame(pnt_1=max.indiv.wave.height_pts_trend$`1`,pnt_2=max.indiv.wave.height_pts_trend$`2`,pnt_3=max.indiv.wave.height_pts_trend$`3`,pnt_4=max.indiv.wave.height_pts_trend$`4`,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_miwh_trends, title = "Max. Individual wave height and fuel consumption trends (points)", type = "multiple")
+
+
+
+
+```
+
+
+Cierta correspondencia en el periodo de consumos altos y en el máximo (ptos 2 al 4 y 3 y 4 respectivamente).
+
+
+
+
+#### 4.2.9.3. Scatter plot: fuel consumption vs maximum individual wave height (points).
+
+
+```{r scatter_miwh_fuel, message=FALSE, fig.width=10, fig.height=7}
+
+
+miwh_values_pts$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(miwh_values_pts, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Maximum individual wave height (points) vs. fuel consumption",color = "points") +
+  xlab("Max. individual wave height [m.]") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+
+Concentracion a menos, parece cierta relación lineal.
+
+
+
+
+
+## 4.3. RELACIÓN CONSUMO DE FUEL Y VARIABLES MESOCEÁNICAS: MATRIZ DE CORRELACIÓN, PCA.
+
+
+Para este punto necesitamos tener los datos por punto, un dataframe para cada punto con el valor de todas las variables. Eliminamos las variables "Benjamin Feir Index (BFI)"  y "Wave spectral kurtosis" a raíz de los resultados del punto anterior en el que comprobamos que tienen varianza cercana a cero. 
+
+
+Ptrimero inicializamos las variables necesarias para el proceso
+
+
+```{r init_get_df_pts}
+
+n_points <- 4
+n_data <- 300
+
+vars_mesoc_ts <- list(u10.wind_pts_ts,v10.wind_pts_ts,m.wave.dir_pts_ts,m.wave.period_pts_ts,sig.wave.height_pts_ts,peak.wave.period_pts_ts,max.indiv.wave.height_pts_ts)
+
+
+names_vars_mesoc_ts <- c("u10_wind","v10_wind","mean_wave_direct","mean_wave_period","signf_wave_height","peak_wave_period","max_indiv_wv_height")
+
+
+df_pt1 <- data.frame(idx_time=1:n_data)
+df_pt2 <- data.frame(idx_time=1:n_data)
+df_pt3 <- data.frame(idx_time=1:n_data)
+df_pt4 <- data.frame(idx_time=1:n_data)
+
+
+
+df_points_list <- list(df_pt1,df_pt2,df_pt3,df_pt4)
+
+
+```
+
+
+
+
+Finalmente recorremos cada variable (lista con los valores para los 4 puntos) y vamos guardando los valores de cada punto en su dataframe correspondiente:
+
+
+```{r get_df_pts}
+
+
+for (nvar in 1:length(names_vars_mesoc_ts)) {
+  
+  m_name <- names_vars_mesoc_ts[nvar]
+  m_var <- vars_mesoc_ts[[nvar]]
+  
+  
+  for (npoint in 1:n_points) {
+    
+    
+    df_points_list[[npoint]][m_name] <- m_var[[npoint]]
+    
+    
+    
+    
+    
+  }
+  
+  
+}
+
+
+str(df_points_list)
+
+
+
+```
+
+
+
+Comprobamos que se ha realizado bien la carga de los dataframe de cada punto con una de las variables:
+
+```{r test_df_points}
+
+str(u10.wind_pts_ts)
+
+
+```
+
+
+
+
+
+### 4.3.1. MATRIZ DE CORRELACIÓN PARA CADA PUNTO GEOGRÁFICO
+
+
+Vamos a calcular la matriz de correlación para los dataframes con las variables de cada punto, a la que añadimos como nueva variable el consumo de fuel para la velocidad que anteriormente hemos escogido de referencia (6.69 m/s).
+
+
+
+#### PRIMER PUNTO.
+
+
+```{r corr_matrix1}
+
+df1 <- df_points_list[[1]] %>%
+  select(-idx_time) %>%
+  mutate(fuel_consump=fuel_cons_speed_ts$`6.69`)
+
+mtrx_cor1 <- cor(df1)
+
+mtrx_cor1
+
+
+
+
+
+```
+
+
+
+Podremos sacar más facilmente conclusiones con la gráfica:
+
+
+```{r corr_plot1, message=FALSE, fig.width=7, fig.height=7}
+
+library(corrplot)
+
+corrplot(mtrx_cor1, method = "shade", shade.col = NA, addCoef.col = TRUE, tl.col = "black", tl.srt = 45)
+
+
+
+
+```
+
+
+En primer lugar observamos una muy alta correlación (0.93) entre las variables "peak_wave_period" y "mean_"wave_period". Y con total rotundidad entre las dos relativas de altura "signf_wave_height" y "max_indiv_wv_height", que llega a la unidad. Estos nos llevaría a prescindir de alguna en cada par a la hora de aplicar PCA. Dejamos la elección a después de ver los resultados en los puntos restantes.
+
+En cuanto al consumo de combustible, sin llegar a ser altas vemos correlacion negativa para "la componente vertical (hacia el norte) del viento "v10_wind" y positivas por orden decreciente para "mean_wave_period", "signif_wave_height" y "max_indiv_wv_height".
+
+
+
+
+#### SEGUNDO PUNTO.
+
+
+```{r corr_plot2, fig.width=7, fig.height=7}
+
+df2 <- df_points_list[[2]] %>%
+  select(-idx_time) %>%
+  mutate(fuel_consump=fuel_cons_speed_ts$`6.69`)
+
+mtrx_cor2 <- cor(df2)
+
+
+corrplot(mtrx_cor2, method = "shade", shade.col = NA, addCoef.col = TRUE, tl.col = "black", tl.srt = 45)
+
+
+
+```
+
+
+- corr entre variables: ademas de las nombradas se suman las de altura con periodicidad de las olas.
+
+- corr con fuel: las mismas anteriores pero con ligero descenso, más acuciado en las de altura
+
+
+
+
+#### TERCER PUNTO.
+
+
+```{r corr_plot3, fig.width=7, fig.height=7}
+
+df3 <- df_points_list[[3]] %>%
+  select(-idx_time) %>%
+  mutate(fuel_consump=fuel_cons_speed_ts$`6.69`)
+
+mtrx_cor3 <- cor(df3)
+
+
+corrplot(mtrx_cor3, method = "shade", shade.col = NA, addCoef.col = TRUE, tl.col = "black", tl.srt = 45)
+
+
+
+```
+
+
+- corr entre variables: las mismas, más alta todavía entre altura y periodo de las olas.
+
+- corr con fuel: desaparece como a considerar la componente de viento. Las restantes mas parecidas al primer punto.
+
+
+
+
+#### CUARTO PUNTO.
+
+
+```{r corr_plot4, fig.width=7, fig.height=7}
+
+df4 <- df_points_list[[4]] %>%
+  select(-idx_time) %>%
+  mutate(fuel_consump=fuel_cons_speed_ts$`6.69`)
+
+mtrx_cor4 <- cor(df4)
+
+
+corrplot(mtrx_cor4, method = "shade", shade.col = NA, addCoef.col = TRUE, tl.col = "black", tl.srt = 45)
+
+
+
+```
+
+
+
+- corr entre variables: IGUAL PUNTO ANTERIOR
+
+- corr con fuel: desaparece como a considerar la componente de viento. Sin grandes cambio resto.
+
+
+
+
+### 4.3.2. PCA
+
+
+A cada uno de los dataframes de cada punto le aplicamos PCA. Eliminamos antes las variables "signf_wave_height" y "peak_wave_period", quedándonos con "max_indiv_wv_height" y "mean_wave_period", por su muy alta correlación.
+
+
+#### 4.3.2.1. REDUCCION PCA Y SU TENDENCIA, PUNTO 1
+
+
+```{r pca1}
+
+df1pca <- df1 %>%
+  select(-fuel_consump,-signf_wave_height,-peak_wave_period)
+
+pca1 <- prcomp(df1pca)
+
+summary(pca1)
+
+
+```
+
+
+
+Observamos que ya con la primera componente conservamos prácticamente la totalidad de la varianza (99.9%)
+
+
+```{r reducc_pca1, fig.width=10, fig.height=6 }
+
+reducc_pca1_ts <- ts(pca1$x[,1], start = 1993, frequency=12)
+
+reducc_pca1_ts.dc <- stl(reducc_pca1_ts, s.window = "periodic", na.action = na.omit)
+    
+reducc_pca1_trend <- reducc_pca1_ts.dc$time.series[,"trend"]
+
+plot(reducc_pca1_ts.dc)
+
+
+
+```
+
+
+
+
+#### 4.3.2.2. REDUCCION PCA Y SU TENDENCIA, PUNTO 2
+
+
+```{r pca2}
+
+df2pca <- df2 %>%
+  select(-fuel_consump,-signf_wave_height,-peak_wave_period)
+
+pca2 <- prcomp(df2pca)
+
+summary(pca2)
+
+
+```
+
+
+
+
+
+```{r reducc_pca2, fig.width=10, fig.height=6}
+
+reducc_pca2_ts <- ts(pca2$x[,1], start = 1993, frequency=12)
+
+reducc_pca2_ts.dc <- stl(reducc_pca2_ts, s.window = "periodic", na.action = na.omit)
+    
+reducc_pca2_trend <- reducc_pca2_ts.dc$time.series[,"trend"]
+
+plot(reducc_pca2_ts.dc)
+
+
+
+```
+
+
+
+#### 4.3.2.3. REDUCCION PCA Y SU TENDENCIA, PUNTO 3
+
+
+```{r pca3}
+
+df3pca <- df3 %>%
+  select(-fuel_consump,-signf_wave_height,-peak_wave_period)
+
+pca3 <- prcomp(df3pca)
+
+summary(pca3)
+
+
+```
+
+
+
+
+```{r reducc_pca3, fig.width=10, fig.height=6}
+
+reducc_pca3_ts <- ts(pca3$x[,1], start = 1993, frequency=12)
+
+reducc_pca3_ts.dc <- stl(reducc_pca3_ts, s.window = "periodic", na.action = na.omit)
+    
+reducc_pca3_trend <- reducc_pca3_ts.dc$time.series[,"trend"]
+
+plot(reducc_pca3_ts.dc)
+
+
+
+```
+
+
+
+#### 4.3.2.4. REDUCCION PCA Y SU TENDENCIA, PUNTO 4
+
+
+```{r pca4}
+
+df4pca <- df4 %>%
+  select(-fuel_consump,-signf_wave_height,-peak_wave_period)
+
+pca4 <- prcomp(df4pca)
+
+summary(pca4)
+
+
+```
+
+
+
+```{r reducc_pca4, fig.width=10, fig.height=6}
+
+
+reducc_pca4_ts <- ts(pca4$x[,1], start = 1993, frequency=12)
+
+reducc_pca4_ts.dc <- stl(reducc_pca4_ts, s.window = "periodic", na.action = na.omit)
+    
+reducc_pca4_trend <- reducc_pca4_ts.dc$time.series[,"trend"]
+
+plot(reducc_pca4_ts.dc)
+
+
+
+```
+
+
+
+
+#### 4.3.2.5. Scatterplot reduccion PCA vs consumo de fuel.
+
+
+```{r scatter_reducc_pca_vs_fuel_consump, message=FALSE, fig.width=10, fig.height=7}
+
+pca_vs_fuel <- data.frame(pca_1=reducc_pca1_ts,pca_2=reducc_pca2_ts,pca_3=reducc_pca3_ts,pca_4=reducc_pca4_ts) %>%
+  mutate(year=as.character(floor(time(reducc_pca1_ts)))) %>%
+  mutate(month=as.character(cycle(reducc_pca1_ts))) %>%
+  mutate(day="01") %>%
+  unite(date,year,month,day,sep = "-") %>%
+  mutate(date=as.Date(date)) %>%
+  select(date,everything()) %>%
+  gather(key = "variable", value = "value", -date)
+
+
+pca_vs_fuel$fuel_ref <- fuel_cons_speed_ts$`6.69`
+
+
+ggplot(pca_vs_fuel, aes(x = value,group = variable,color=variable)) +
+  geom_point(aes(y=fuel_ref)) +
+  facet_wrap( ~ variable, ncol = 2) +
+  scale_color_discrete() +
+  labs(title = "Scatter plot Reducc. PCA (points) vs. fuel consumption",color = "points") +
+  xlab("Reducc. PCA") +
+  ylab("fuel consumption (speed = 6.69 m/s) [kg or m^3]") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+```
+
+
+Exceptuando en el punto 2, donde los puntos de la gráfica están mas dispersos, se observa cierta relación lineal con pendiente negativa, llegando a ser casi vertical en el punto 4.
+
+
+
+#### 4.3.2.6. Análisis serie temporal (reducción PCA)
+
+
+
+```{r init_descr_ts_pca}
+
+descrp_pca_ts <- ts(data = data.frame(pnt_1=reducc_pca1_ts,pnt_2=reducc_pca2_ts,pnt_3=reducc_pca3_ts,pnt_4=reducc_pca4_ts), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_miwh_ts, title = "PCA (points)", type = "multiple")
+
+
+
+
+```
+
+
+Se observa alguna semejanza en el trazado para los 4 puntos y la posible existencia de periodicidad menos clara en el primero.
+
+
+
+##### Estacionalidad, existencia de ciclos.
+
+En cuanto a la estacionalidad pasamos a examinar el periodograma de las tres:
+
+
+```{r spectr_pca, fig.width=10, fig.height=10}
+
+par(mfrow=c(4,1))
+
+spec_pca.pt1 <- spec.pgram(reducc_pca1_ts,taper=0,log='no')
+
+spec_pca.pt2 <- spec.pgram(reducc_pca2_ts,taper=0,log='no')
+
+spec_pca.pt3 <- spec.pgram(reducc_pca3_ts, taper=0,log='no')
+
+spec_pca.pt4 <- spec.pgram(reducc_pca4_ts, taper=0,log='no')
+
+
+```
+
+
+Espectro con periodicidad predominante en los dos primeros, con la sorpresa de ser para la frecuencia2 el primero. Espectros mucho más complejos en los otros dos puntos con lo cual no hay componente de frecuencia clara.
+
+
+Vamos a hacer el mapa de calor en este caso para los puntos 2 y 3 (más dispares y el segundo en principio con frecuencia anual)
+
+
+
+```{r heatmap_pca}
+
+ts_heatmap(reducc_pca2_ts, color = "Reds", title = "PCA (pt. 2)")
+
+ts_heatmap(reducc_pca3_ts, color = "Reds", title = "PCA (pt. 3)")
+
+
+```
+
+En el punto 2 se observa uniformidad en los valores para los meses de Julio y Enero, y presencia mayoritaria de valores extremos en Septiembre, que señalarían la frecuencia anual vista en el spectrograma
+
+
+No se puede detectar un claro patrón en el punto 3, con predominio de valores bajos para casi todos los meses.
+
+
+
+##### Trend component (points)
+
+Vamos a contrastar las tendencias entre los puntos y con el consumo de fuel (tomamos como valor de velocidad el intermedio)
+
+
+
+```{r init_descr_trend_pca}
+
+descrp_pca_trends <- ts(data = data.frame(pnt_1=reducc_pca1_trend,pnt_2=reducc_pca2_trend,pnt_3=reducc_pca3_trend,pnt_4=reducc_pca4_trend,fuel_consumpt=fuel_cons_speed_trends$`6.69`), start = 1993, frequency = 12)
+
+
+ts_plot(descrp_pca_trends, title = "PCA (points) and fuel consumption trends ", type = "multiple")
+
+
+
+
+```
+
+
+Solo se observa correspondencia alguna correspondencia con el máximo en los 3 primeos puntos
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
